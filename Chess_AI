@@ -1,1 +1,112 @@
 
+"""Chess AI holds the instructions for how the AI decides to make a move against its opponent"""
+
+import random
+
+"""Use a point system to decide what the best move is - want the highest number of points"""
+piece_score = {'K': 0, 'Q': 10, 'R': 5, 'B': 3, 'N': 3, 'P': 1}  # Different pieces are more valuable than others
+CHECKMATE = 1000
+STALEMATE = 0  # Stale mate is 0 because we want to avoid this
+DEPTH = 2  # Determines how many moves we look ahead. The higher the number the more intelligent and the longer it takes
+
+
+def find_random_move(valid_moves):
+    """This method is not very creative and stupid"""
+    return random.choice(valid_moves)
+
+
+# def find_greedy_move(gs, valid_moves):
+#     turn_multiplier = 1 if gs.whiteToMove else -1
+#     opp_minmax_score = CHECKMATE
+#     best_move = None
+#     random.shuffle(valid_moves)
+#     for player_move in valid_moves:
+#         gs.make_move(player_move)
+#         opponent_moves = gs.get_valid_moves()
+#         if gs.stale_mate:
+#             opp_max_score = STALEMATE
+#         elif gs.check_mate:
+#             opp_max_score = -CHECKMATE
+#         else:
+#             opp_max_score = -CHECKMATE
+#             for opp_move in opponent_moves:
+#                 gs.make_move(opp_move)
+#                 gs.get_valid_moves()
+#                 if gs.check_mate:
+#                     score = CHECKMATE
+#                 elif gs.stale_mate:
+#                     score = STALEMATE
+#                 else:
+#                     score = -turn_multiplier * score_material(gs.board)
+#                 if score > opp_max_score:
+#                     opp_max_score = score
+#                 gs.undo_move()
+#         if opp_minmax_score < opp_max_score:
+#             opp_minmax_score = opp_max_score
+#             best_move = player_move
+#         gs.undo_move()
+#     return best_move
+
+
+def find_best_move(game_state, valid_moves, return_queue):
+    """Helper method to call recursion in nega-max alpha-beta"""
+    global next_move
+    next_move = None
+    random.shuffle(valid_moves)
+    find_move_negamax_alphabeta(game_state, valid_moves, DEPTH, -CHECKMATE, CHECKMATE,
+                                1 if game_state.white_to_move else -1)
+    return_queue.put(next_move)
+
+
+def find_move_negamax_alphabeta(game_state, valid_moves, depth, alpha, beta, turn_multiplier):
+    global next_move
+    if depth == 0:
+        return turn_multiplier * score_board(game_state)  # Turn multiplier gives the points to the correct player
+
+    max_score = -CHECKMATE  # Worst score possible
+    for move in valid_moves:
+        game_state.make_move(move)
+        next_moves = game_state.getValidMoves()  # Looking at all the moves possible after this move
+        score = -find_move_negamax_alphabeta(game_state, next_moves, depth - 1, -beta, -alpha, -turn_multiplier)
+        if score > max_score:
+            max_score = score
+            if depth == DEPTH:  # How many moves in advance we look at is determined by the depth
+                next_move = move
+        game_state.undo_move()
+        if max_score > alpha:  # Looking for the move that will bring the most points
+            alpha = max_score
+        if alpha >= beta:
+            break
+    return max_score
+
+
+def score_board(game_state):
+    """Score the overall board"""
+    if game_state.checkmate:
+        if game_state.white_to_move:
+            return -CHECKMATE
+        else:
+            return CHECKMATE
+    elif game_state.stalemate:
+        return STALEMATE
+
+    score = 0
+    for row in game_state.board:
+        for square in row:
+            if square[0] == 'w':  # White wants the most positive number
+                score += piece_score[square[1]]
+            elif square[0] == 'b':  # Black wants the most negative number
+                score -= piece_score[square[1]]
+    return score
+
+
+# def score_material(board):
+#     score = 0
+#     for row in board:
+#         for square in row:
+#             if square[0] == 'w':
+#                 score += piece_score[square[1]]
+#             elif square[0] == 'b':
+#                 score -= piece_score[square[1]]
+#     return score
+
